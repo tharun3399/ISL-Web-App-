@@ -84,13 +84,6 @@ const AuthPage: React.FC = () => {
     }
   };
 
-  // Initialize Google login hook
-  const googleLogin = useGoogleLogin({
-    onSuccess: handleGoogleResponse,
-    onError: () => setError('Google sign-in was cancelled or failed'),
-    flow: 'auth-code',
-  });
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -190,49 +183,6 @@ const AuthPage: React.FC = () => {
     setEmail('');
     setPassword('');
     setConfirmPassword('');
-  };
-
-  const handleGoogleResponse = async (codeResponse: any) => {
-    try {
-      setError('');
-      setLoading(true);
-
-      // Send authorization code to backend for token exchange
-      const response = await fetch(`${API_BASE_URL}/auth/google`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code: codeResponse.code,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Google authentication failed');
-        setLoading(false);
-        return;
-      }
-
-      // Store token and user info in localStorage
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.data));
-
-      console.log('✅ Google login successful:', data.data);
-      
-      // Redirect to dashboard or preferences based on new user
-      if (data.isNewUser) {
-        navigate('/preferences');
-      } else {
-        navigate('/dashboard');
-      }
-    } catch (err: any) {
-      console.error('❌ Google auth error:', err);
-      setError(err.message || 'Google authentication failed');
-      setLoading(false);
-    }
   };
 
   return (
