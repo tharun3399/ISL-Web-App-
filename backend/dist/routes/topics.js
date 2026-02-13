@@ -43,4 +43,3 @@ router.get('/:id/sentences', async (req, res) => {
     }
 });
 exports.default = router;
-//# sourceMappingURL=topics.js.map

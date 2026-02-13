@@ -58,4 +58,3 @@ const decodeToken = (token) => {
     }
 };
 exports.decodeToken = decodeToken;
-//# sourceMappingURL=jwt.js.map

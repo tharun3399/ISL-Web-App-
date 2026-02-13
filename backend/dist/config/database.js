@@ -47,4 +47,3 @@ const closePool = async () => {
 };
 exports.closePool = closePool;
 exports.default = pool;
-//# sourceMappingURL=database.js.map

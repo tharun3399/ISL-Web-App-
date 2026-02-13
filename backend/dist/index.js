@@ -41,12 +41,12 @@ const cors_1 = __importDefault(require("cors"));
 const body_parser_1 = __importDefault(require("body-parser"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const os_1 = __importDefault(require("os"));
-const database_1 = __importStar(require("./config/database"));
-const auth_1 = __importDefault(require("./routes/auth"));
-const users_1 = __importDefault(require("./routes/users"));
-const lessons_1 = __importDefault(require("./routes/lessons"));
-const topics_1 = __importDefault(require("./routes/topics"));
-const words_1 = __importDefault(require("./routes/words"));
+const database_js_1 = __importStar(require("./config/database.js"));
+const auth_js_1 = __importDefault(require("./routes/auth.js"));
+const users_js_1 = __importDefault(require("./routes/users.js"));
+const lessons_js_1 = __importDefault(require("./routes/lessons.js"));
+const topics_js_1 = __importDefault(require("./routes/topics.js"));
+const words_js_1 = __importDefault(require("./routes/words.js"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = Number(process.env.PORT) || 5000;
@@ -76,7 +76,7 @@ app.get('/health', (req, res) => {
 // Database connection test
 app.get('/db-check', async (req, res) => {
     try {
-        const result = await database_1.default.query('SELECT NOW()');
+        const result = await database_js_1.default.query('SELECT NOW()');
         res.json({
             success: true,
             message: 'Database connection successful',
@@ -92,11 +92,11 @@ app.get('/db-check', async (req, res) => {
     }
 });
 // API Routes
-app.use('/api/auth', auth_1.default);
-app.use('/api/users', users_1.default);
-app.use('/api/lessons', lessons_1.default);
-app.use('/api/topics', topics_1.default);
-app.use('/api/words', words_1.default);
+app.use('/api/auth', auth_js_1.default);
+app.use('/api/users', users_js_1.default);
+app.use('/api/lessons', lessons_js_1.default);
+app.use('/api/topics', topics_js_1.default);
+app.use('/api/words', words_js_1.default);
 // Root endpoint
 app.get('/', (req, res) => {
     res.json({
@@ -131,13 +131,12 @@ const startServer = async () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
     console.log('SIGTERM received, shutting down gracefully...');
-    await (0, database_1.closePool)();
+    await (0, database_js_1.closePool)();
     process.exit(0);
 });
 process.on('SIGINT', async () => {
     console.log('SIGINT received, shutting down gracefully...');
-    await (0, database_1.closePool)();
+    await (0, database_js_1.closePool)();
     process.exit(0);
 });
 startServer();
-//# sourceMappingURL=index.js.map

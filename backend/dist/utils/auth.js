@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authMiddleware = void 0;
-const jwt_1 = require("./jwt");
+const jwt_js_1 = require("./jwt.js");
 const authMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -17,7 +17,7 @@ const authMiddleware = (req, res, next) => {
             error: 'Bearer token missing',
         });
     }
-    const decoded = (0, jwt_1.verifyToken)(token);
+    const decoded = (0, jwt_js_1.verifyToken)(token);
     if (!decoded) {
         return res.status(401).json({
             success: false,
@@ -28,4 +28,3 @@ const authMiddleware = (req, res, next) => {
     next();
 };
 exports.authMiddleware = authMiddleware;
-//# sourceMappingURL=auth.js.map

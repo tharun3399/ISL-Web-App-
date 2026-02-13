@@ -6,94 +6,28 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const database_1 = __importDefault(require("../config/database"));
 const router = (0, express_1.Router)();
-const IRREGULAR_MAP = {
-    took: 'take',
-    taken: 'take',
-    fed: 'feed',
-    felt: 'feel',
-    kept: 'keep',
-    bought: 'buy',
-    brought: 'bring',
-    built: 'build',
-    woke: 'wake',
-    worn: 'wear',
-    wore: 'wear',
-    sung: 'sing',
-    sang: 'sing',
-    gone: 'go',
-    did: 'do',
-    done: 'do',
-    saw: 'see',
-    seen: 'see',
-    was: 'be',
-    were: 'be',
-    ate: 'eat',
-    eaten: 'eat',
-    drank: 'drink',
-    drunk: 'drink',
-    spoke: 'speak',
-    spoken: 'speak',
-    wrote: 'write',
-    written: 'write',
-    drove: 'drive',
-    driven: 'drive',
-    rode: 'ride',
-    ridden: 'ride',
-    read: 'read',
-    stood: 'stand',
-    understood: 'understand',
-    made: 'make',
-    said: 'say',
-    paid: 'pay'
+// Specific word mappings for video lookup
+const WORD_MAPPINGS = {
+    teacher: 'teach',
 };
-const normalizeWordForms = (rawWord) => {
-    const word = rawWord.toLowerCase();
-    const forms = new Set();
-    const addForm = (val) => {
-        if (val && val.length >= 2)
-            forms.add(val);
-    };
-    addForm(word);
-    if (IRREGULAR_MAP[word]) {
-        addForm(IRREGULAR_MAP[word]);
-    }
-    if (word.endsWith('ies') && word.length > 4) {
-        addForm(word.slice(0, -3) + 'y');
-    }
-    if (word.endsWith('es') && word.length > 3) {
-        addForm(word.slice(0, -2));
-    }
-    if (word.endsWith('s') && word.length > 3) {
-        addForm(word.slice(0, -1));
-    }
-    if (word.endsWith('ing') && word.length > 5) {
-        addForm(word.slice(0, -3));
-        if (word[word.length - 4] === word[word.length - 5]) {
-            addForm(word.slice(0, -4));
-        }
-    }
-    if (word.endsWith('ed') && word.length > 4) {
-        addForm(word.slice(0, -2));
-        if (word.endsWith('ied')) {
-            addForm(word.slice(0, -3) + 'y');
-        }
-        if (word[word.length - 3] === word[word.length - 4]) {
-            addForm(word.slice(0, -3));
-        }
-    }
-    return Array.from(forms);
-};
+// Words to exclude from video display
+const EXCLUDED_WORDS = new Set(['eat', 'ready']);
 const buildCandidateWordList = (words) => {
     const seen = new Set();
     const candidates = [];
     words.forEach((word) => {
-        const forms = normalizeWordForms(word);
-        forms.forEach((form) => {
-            if (!seen.has(form)) {
-                seen.add(form);
-                candidates.push(form);
-            }
-        });
+        const normalized = word.trim().toLowerCase();
+        if (normalized.length < 2)
+            return;
+        // Skip excluded words
+        if (EXCLUDED_WORDS.has(normalized))
+            return;
+        // Check if there's a specific mapping for this word
+        const targetWord = WORD_MAPPINGS[normalized] || normalized;
+        if (!seen.has(targetWord)) {
+            seen.add(targetWord);
+            candidates.push(targetWord);
+        }
     });
     return candidates;
 };
@@ -105,6 +39,7 @@ router.get('/', async (req, res) => {
       SELECT 
         ln.id,
         ln.lesson_name as title,
+        ln.photo,
         COALESCE(json_agg(
           json_build_object(
             'id', t.id,
@@ -123,7 +58,7 @@ router.get('/', async (req, res) => {
         LEFT JOIN sentences s ON t.id = s.topic_id
         GROUP BY t.id, t.lesson_id, t.topic
       ) t ON ln.id = t.lesson_id
-      GROUP BY ln.id, ln.lesson_name
+      GROUP BY ln.id, ln.lesson_name, ln.photo
       ORDER BY ln.id ASC
     `);
         console.log(`✅ Fetched ${result.rows.length} lessons with topics and sentences from database:`, result.rows);
@@ -256,4 +191,3 @@ router.post('/words/videos', async (req, res) => {
     }
 });
 exports.default = router;
-//# sourceMappingURL=lessons.js.map

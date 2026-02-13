@@ -2,7 +2,6 @@
   "name": "isl-backend",
   "version": "1.0.0",
   "description": "Backend server for ISL application with PostgreSQL",
-  "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",

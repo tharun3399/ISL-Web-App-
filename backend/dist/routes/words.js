@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const database_1 = __importDefault(require("../config/database"));
 const router = (0, express_1.Router)();
-// List all unique words from isl_words (dedup by lowercase word)
+// List all unique words from isl_words2 (dedup by lowercase word)
 router.get('/', async (req, res) => {
     try {
         const result = await database_1.default.query(`SELECT 
@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
          MIN(word) AS word,
          MIN(video_name) AS video_name,
          'https://pub-2d19b53b556b4755a69be5d1e59da23a.r2.dev/' || MIN(video_name) AS video_url
-       FROM isl_words
+       FROM isl_words2
        GROUP BY LOWER(word)
        ORDER BY MIN(id) ASC`);
         res.json({ success: true, data: result.rows });
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
         });
     }
 });
-// Get random distractor words from isl_words, excluding the target word (case-insensitive)
+// Get random distractor words from isl_words2, excluding the target word (case-insensitive)
 router.post('/options', async (req, res) => {
     try {
         const { word, count } = req.body;
@@ -37,7 +37,7 @@ router.post('/options', async (req, res) => {
         }
         const limit = typeof count === 'number' && count > 0 ? count : 3;
         const result = await database_1.default.query(`SELECT word
-       FROM isl_words
+       FROM isl_words2
        WHERE LOWER(word) <> LOWER($1)
        ORDER BY RANDOM()
        LIMIT $2`, [word, limit]);
@@ -59,4 +59,3 @@ router.post('/options', async (req, res) => {
     }
 });
 exports.default = router;
-//# sourceMappingURL=words.js.map

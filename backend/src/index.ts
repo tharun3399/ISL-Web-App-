@@ -4,11 +4,11 @@ import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import os from 'os';
 import pool, { closePool } from './config/database.js';
-import authRoutes from './routes/auth';
-import userRoutes from './routes/users';
-import lessonRoutes from './routes/lessons';
-import topicsRoutes from './routes/topics';
-import wordsRoutes from './routes/words';
+import authRoutes from './routes/auth.js';
+import userRoutes from './routes/users.js';
+import lessonRoutes from './routes/lessons.js';
+import topicsRoutes from './routes/topics.js';
+import wordsRoutes from './routes/words.js';
 
 dotenv.config();
 
