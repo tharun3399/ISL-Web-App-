@@ -1,0 +1,7 @@
+{
+  "name": "ISL Master Dashboard",
+  "description": "A minimalist, high-contrast black and white dashboard for Indian Sign Language learners featuring progress tracking, streak management, and AI-powered learning insights.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
