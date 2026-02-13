@@ -172,9 +172,11 @@ router.post('/verify', (req: Request, res: Response) => {
 // Google OAuth - Verify Google credential and create/login user
 router.post('/google', async (req: Request, res: Response) => {
   try {
+    console.log('🔐 Google OAuth endpoint called');
     const { code } = req.body;
 
     if (!code) {
+      console.warn('⚠️  No code provided');
       return res.status(400).json({
         success: false,
         error: 'Google authorization code is required',
@@ -182,19 +184,32 @@ router.post('/google', async (req: Request, res: Response) => {
     }
 
     if (!googleClient) {
-      console.error('❌ Google Client ID not configured');
+      console.error('❌ Google Client ID not configured - googleClient is null');
+      console.error('GOOGLE_CLIENT_ID env:', process.env.GOOGLE_CLIENT_ID ? 'SET' : 'NOT SET');
       return res.status(500).json({
         success: false,
         error: 'Google authentication is not configured on server',
       });
     }
 
-    console.log('🔐 Exchanging Google authorization code for token...');
+    console.log('✅ Google Client configured, processing code...');
 
     // Exchange authorization code for tokens
-    const { tokens } = await googleClient.getToken(code);
+    let tokens;
+    try {
+      const response = await googleClient.getToken(code);
+      tokens = response.tokens;
+      console.log('✅ Token exchange successful');
+    } catch (error: any) {
+      console.error('❌ Token exchange failed:', error.message);
+      return res.status(401).json({
+        success: false,
+        error: `Token exchange failed: ${error.message}`,
+      });
+    }
     
     if (!tokens.id_token) {
+      console.error('❌ No ID token in response');
       return res.status(401).json({
         success: false,
         error: 'Failed to get ID token from Google',
@@ -202,13 +217,24 @@ router.post('/google', async (req: Request, res: Response) => {
     }
 
     // Verify the ID token
-    const ticket = await googleClient.verifyIdToken({
-      idToken: tokens.id_token,
-      audience: googleClientId,
-    });
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken: tokens.id_token,
+        audience: googleClientId,
+      });
+      console.log('✅ ID token verified');
+    } catch (error: any) {
+      console.error('❌ Token verification failed:', error.message);
+      return res.status(401).json({
+        success: false,
+        error: `Token verification failed: ${error.message}`,
+      });
+    }
 
     const payload = ticket.getPayload();
     if (!payload) {
+      console.error('❌ No payload from ticket');
       return res.status(401).json({
         success: false,
         error: 'Invalid Google token payload',
@@ -216,8 +242,10 @@ router.post('/google', async (req: Request, res: Response) => {
     }
 
     const { email, name, picture } = payload;
+    console.log('✅ Extracted from payload - Email:', email, 'Name:', name);
 
     if (!email) {
+      console.error('❌ No email in payload');
       return res.status(401).json({
         success: false,
         error: 'Could not retrieve email from Google account',
@@ -267,9 +295,11 @@ router.post('/google', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ Google auth error:', error.message);
+    console.error('Full error:', error);
     res.status(401).json({
       success: false,
       error: error.message || 'Google authentication failed',
+      details: process.env.NODE_ENV === 'production' ? undefined : error.stack,
     });
   }
 });
