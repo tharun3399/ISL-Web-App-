@@ -63,6 +63,14 @@ const AppLayout: React.FC = () => {
   );
 };
 
+const RequireAuth: React.FC = () => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    return <Navigate to="/auth" replace />;
+  }
+  return <Outlet />;
+};
+
 const App: React.FC = () => {
   return (
     <HashRouter>
@@ -72,26 +80,28 @@ const App: React.FC = () => {
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/preferences" element={<UserPreferences />} />
 
-        <Route element={<AppLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/lessons" element={<LessonsPage />} />
-          <Route path="/practice" element={<PracticePage />} />
-          <Route path="/games" element={<GamesPage />} />
-          <Route path="/dictionary" element={<DictionaryPage />} />
-          <Route path="/account" element={<AccountPage />} />
-          <Route path="/settings" element={
-            <div className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-8 animate-in fade-in duration-500">
-               <div className="w-32 h-32 md:w-40 md:h-40 bg-zinc-900/50 rounded-[2.5rem] md:rounded-[3rem] border border-zinc-800 flex items-center justify-center">
-                 <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#222" strokeWidth="1">
-                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-                 </svg>
-               </div>
-               <div>
-                 <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-white uppercase italic text-zinc-200">System Locked</h2>
-                 <p className="text-zinc-600 mt-4 text-lg md:text-xl font-medium tracking-wide italic">"Access restricted to core modules only."</p>
-               </div>
-            </div>
-          } />
+        <Route element={<RequireAuth />}>
+          <Route element={<AppLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/lessons" element={<LessonsPage />} />
+            <Route path="/practice" element={<PracticePage />} />
+            <Route path="/games" element={<GamesPage />} />
+            <Route path="/dictionary" element={<DictionaryPage />} />
+            <Route path="/account" element={<AccountPage />} />
+            <Route path="/settings" element={
+              <div className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-8 animate-in fade-in duration-500">
+                 <div className="w-32 h-32 md:w-40 md:h-40 bg-zinc-900/50 rounded-[2.5rem] md:rounded-[3rem] border border-zinc-800 flex items-center justify-center">
+                   <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#222" strokeWidth="1">
+                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+                   </svg>
+                 </div>
+                 <div>
+                   <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-white uppercase italic text-zinc-200">System Locked</h2>
+                   <p className="text-zinc-600 mt-4 text-lg md:text-xl font-medium tracking-wide italic">"Access restricted to core modules only."</p>
+                 </div>
+              </div>
+            } />
+          </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
