@@ -3,7 +3,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import os from 'os';
-import pool, { closePool } from './config/database';
+import pool, { closePool } from './config/database.js';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import lessonRoutes from './routes/lessons';

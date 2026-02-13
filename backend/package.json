@@ -4,11 +4,10 @@
   "description": "Backend server for ISL application with PostgreSQL",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "ts-node src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "test": "jest"
-  },
+  "build": "tsc",
+  "start": "node dist/index.js"
+}
+,
   "keywords": [],
   "author": "",
   "license": "ISC",
