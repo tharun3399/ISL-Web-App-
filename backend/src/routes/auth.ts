@@ -172,12 +172,12 @@ router.post('/verify', (req: Request, res: Response) => {
 // Google OAuth - Verify Google credential and create/login user
 router.post('/google', async (req: Request, res: Response) => {
   try {
-    const { credential } = req.body;
+    const { code } = req.body;
 
-    if (!credential) {
+    if (!code) {
       return res.status(400).json({
         success: false,
-        error: 'Google credential is required',
+        error: 'Google authorization code is required',
       });
     }
 
@@ -189,11 +189,21 @@ router.post('/google', async (req: Request, res: Response) => {
       });
     }
 
-    console.log('🔐 Verifying Google credential...');
+    console.log('🔐 Exchanging Google authorization code for token...');
 
-    // Verify the Google ID token
+    // Exchange authorization code for tokens
+    const { tokens } = await googleClient.getToken(code);
+    
+    if (!tokens.id_token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Failed to get ID token from Google',
+      });
+    }
+
+    // Verify the ID token
     const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
+      idToken: tokens.id_token,
       audience: googleClientId,
     });
 
@@ -201,7 +211,7 @@ router.post('/google', async (req: Request, res: Response) => {
     if (!payload) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid Google credential',
+        error: 'Invalid Google token payload',
       });
     }
 
@@ -214,7 +224,7 @@ router.post('/google', async (req: Request, res: Response) => {
       });
     }
 
-    console.log('✅ Google credential verified for:', email);
+    console.log('✅ Google token verified for:', email);
 
     // Check if user exists
     let user = await UserModel.findByEmail(email);
