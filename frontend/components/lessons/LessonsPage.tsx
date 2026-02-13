@@ -193,31 +193,28 @@ const LessonsPage: React.FC = () => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isAssessing, currentAQIdx, showAssessmentResult, selectedOption]);
 
-  // Autoplay word videos effect with preview
+  // Show word preview for 2.5 seconds, then show video
   useEffect(() => {
-    if (wordVideos.length > 0 && currentWordIndex < wordVideos.length) {
-      if (showingWordPreview) {
-        // Show word preview for 2.5 seconds
-        const previewTimer = setTimeout(() => {
-          setShowingWordPreview(false);
-        }, 2500);
-        return () => clearTimeout(previewTimer);
-      } else {
-        // After video plays (approx 3.5 seconds), move to next word
-        const videoTimer = setTimeout(() => {
-          if (currentWordIndex < wordVideos.length - 1) {
-            setCurrentWordIndex(currentWordIndex + 1);
-            setShowingWordPreview(true);
-          } else {
-            // All words finished, reset for next sentence
-            setCurrentWordIndex(0);
-            setShowingWordPreview(true);
-          }
-        }, 3500);
-        return () => clearTimeout(videoTimer);
-      }
+    if (wordVideos.length > 0 && currentWordIndex < wordVideos.length && showingWordPreview) {
+      const previewTimer = setTimeout(() => {
+        setShowingWordPreview(false);
+      }, 2500);
+      return () => clearTimeout(previewTimer);
     }
   }, [wordVideos, currentWordIndex, showingWordPreview]);
+
+  // Handle word video completion
+  const handleWordVideoEnded = () => {
+    if (currentWordIndex < wordVideos.length - 1) {
+      // Move to next word (reset preview)
+      setCurrentWordIndex(currentWordIndex + 1);
+      setShowingWordPreview(true);
+    } else {
+      // All words finished, reset for next sentence
+      setCurrentWordIndex(0);
+      setShowingWordPreview(true);
+    }
+  };
 
   const handleTopicClick = async (index: number) => {
     if (!selectedLesson) return;
@@ -452,11 +449,12 @@ const LessonsPage: React.FC = () => {
                 containerClassName="w-full aspect-square rounded-[3rem]"
                 videoClassName=""
                 autoPlay
-                loop
+                loop={!showingWordVideos}
                 muted
                 playsInline
                 showControls={false}
                 showPlayOverlay={false}
+                onEnded={showingWordVideos ? handleWordVideoEnded : undefined}
               />
             )}
           </div>

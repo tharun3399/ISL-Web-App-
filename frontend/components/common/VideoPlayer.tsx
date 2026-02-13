@@ -11,6 +11,7 @@ interface VideoPlayerProps {
   showControls?: boolean;
   showPlayOverlay?: boolean;
   clickToToggle?: boolean;
+  onEnded?: () => void;
 }
 
 /**
@@ -30,6 +31,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   showControls = false,
   showPlayOverlay = true,
   clickToToggle = true,
+  onEnded,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,6 +102,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onCanPlay={() => { setIsLoading(false); setHasError(false); }}
         onPlaying={() => { setIsLoading(false); setIsPaused(false); }}
         onError={() => setHasError(true)}
+        onEnded={onEnded}
         className={`w-full h-full object-cover transition-all duration-700 ${isLoading ? 'opacity-0' : 'opacity-100'} ${videoClassName}`}
       >
         <source src={src} type="video/mp4" />
