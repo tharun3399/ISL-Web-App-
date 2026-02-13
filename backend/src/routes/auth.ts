@@ -2,8 +2,13 @@ import express, { Router, Request, Response } from 'express';
 import { UserModel } from '../models/User';
 import { generateToken, verifyToken } from '../utils/jwt';
 import { hashPassword, comparePassword } from '../utils/password';
+import { OAuth2Client } from 'google-auth-library';
 
 const router: Router = express.Router();
+
+// Initialize Google OAuth Client
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 
 // Sign up - Create new user
 router.post('/signup', async (req: Request, res: Response) => {
@@ -160,6 +165,99 @@ router.post('/verify', (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Token verification failed',
+    });
+  }
+});
+
+// Google OAuth - Verify Google credential and create/login user
+router.post('/google', async (req: Request, res: Response) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        error: 'Google credential is required',
+      });
+    }
+
+    if (!googleClient) {
+      console.error('❌ Google Client ID not configured');
+      return res.status(500).json({
+        success: false,
+        error: 'Google authentication is not configured on server',
+      });
+    }
+
+    console.log('🔐 Verifying Google credential...');
+
+    // Verify the Google ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: googleClientId,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid Google credential',
+      });
+    }
+
+    const { email, name, picture } = payload;
+
+    if (!email) {
+      return res.status(401).json({
+        success: false,
+        error: 'Could not retrieve email from Google account',
+      });
+    }
+
+    console.log('✅ Google credential verified for:', email);
+
+    // Check if user exists
+    let user = await UserModel.findByEmail(email);
+    let isNewUser = false;
+
+    if (!user) {
+      // Create new user with Google info
+      console.log('📝 Creating new user from Google auth:', email);
+      user = await UserModel.create(
+        name || email.split('@')[0],
+        email,
+        '', // Empty phone for Google users
+        generateToken({ email }) // Placeholder password, won't be used
+      );
+      isNewUser = true;
+    }
+
+    // Generate JWT
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    });
+
+    console.log('✅ Google login successful for:', email);
+
+    res.json({
+      success: true,
+      message: 'Google authentication successful',
+      isNewUser,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+      token,
+    });
+  } catch (error: any) {
+    console.error('❌ Google auth error:', error.message);
+    res.status(401).json({
+      success: false,
+      error: error.message || 'Google authentication failed',
     });
   }
 });
