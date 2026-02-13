@@ -177,11 +177,11 @@ const AuthPage: React.FC = () => {
 
   return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ''}>
-      <div className="h-screen bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 relative">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-zinc-900/10 blur-[150px] rounded-full pointer-events-none"></div>
 
         {/* Reduced max-width from max-w-lg/max-md to max-w-sm for a narrower, more elegant profile */}
-        <div className="w-full max-w-sm z-10 space-y-6 animate-in fade-in zoom-in-95 duration-700">
+        <div className="w-full max-w-sm z-10 space-y-6 animate-in fade-in zoom-in-95 duration-700 py-12">
         <div className="flex flex-col items-center text-center space-y-3">
           <div className="w-10 h-10 border-2 border-white rounded-lg flex items-center justify-center mb-1 shadow-lg">
             <div className="w-5 h-5 bg-white rounded-sm"></div>
