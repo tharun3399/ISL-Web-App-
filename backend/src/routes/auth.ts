@@ -239,8 +239,8 @@ router.post('/google', async (req: Request, res: Response) => {
     if (!user) {
       // Create new user with Google info
       console.log('📝 Creating new user from Google auth:', email);
-      // Generate a secure random password for Google users (they won't use it)
-      const randomPassword = require('crypto').randomBytes(32).toString('hex');
+      // Generate a random password for Google users (they won't use it) - limited to 15 chars for DB
+      const randomPassword = require('crypto').randomBytes(7).toString('hex');
       user = await UserModel.create(
         name || email.split('@')[0],
         email,
