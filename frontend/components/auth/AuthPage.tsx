@@ -6,7 +6,7 @@ import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 
 const GoogleSignInButton: React.FC<{ handleGoogleResponse: (response: any) => Promise<void>; loading: boolean }> = ({ handleGoogleResponse, loading }) => {
   return (
-    <div className="flex justify-center">
+    <div className="flex justify-center w-full">
       <GoogleLogin
         onSuccess={(credentialResponse) => {
           handleGoogleResponse(credentialResponse);
@@ -303,7 +303,9 @@ const AuthPage: React.FC = () => {
             <div className="flex-grow border-t border-zinc-900"></div>
           </div>
 
-          <GoogleSignInButton handleGoogleResponse={handleGoogleResponse} loading={loading} />
+          <div className="flex items-center justify-center w-full py-2">
+            <GoogleSignInButton handleGoogleResponse={handleGoogleResponse} loading={loading} />
+          </div>
         </div>
       </div>
     </div>
