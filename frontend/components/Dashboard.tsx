@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import WelcomeCard from './WelcomeCard';
 import StatCard from './StatCard';
 import LearningChart from './LearningChart';
@@ -7,6 +8,7 @@ import GoalCard from './GoalCard';
 import AiAssistant from './AiAssistant';
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const userName = "Rahul";
 
   return (
@@ -21,7 +23,10 @@ const Dashboard: React.FC = () => {
             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Active Session</p>
             <p className="text-sm font-bold text-white">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long' })}</p>
           </div>
-          <button className="px-8 py-3.5 bg-white text-black font-black hover:bg-zinc-200 active:scale-95 transition-all rounded-xl text-xs uppercase tracking-widest shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+          <button
+            onClick={() => navigate('/practice')}
+            className="px-8 py-3.5 bg-white text-black font-black hover:bg-zinc-200 active:scale-95 transition-all rounded-xl text-xs uppercase tracking-widest shadow-[0_0_30px_rgba(255,255,255,0.05)]"
+          >
             Begin Practice
           </button>
         </div>
