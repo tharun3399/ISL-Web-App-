@@ -55,7 +55,7 @@ const PracticePage: React.FC = () => {
           const list = json.data.map((l: any) => ({
             id: String(l.id),
             title: l.title || `Lesson ${String(l.id).padStart(2, '0')}`,
-            photo: l.photo || undefined,
+            photo: l.photo_url || undefined,
           }));
           setLessonOptions(list);
         } else {
