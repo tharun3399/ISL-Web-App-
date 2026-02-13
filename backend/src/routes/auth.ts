@@ -173,13 +173,13 @@ router.post('/verify', (req: Request, res: Response) => {
 router.post('/google', async (req: Request, res: Response) => {
   try {
     console.log('🔐 Google OAuth endpoint called');
-    const { code } = req.body;
+    const { credential } = req.body;
 
-    if (!code) {
-      console.warn('⚠️  No code provided');
+    if (!credential) {
+      console.warn('⚠️  No credential provided');
       return res.status(400).json({
         success: false,
-        error: 'Google authorization code is required',
+        error: 'Google credential is required',
       });
     }
 
@@ -192,35 +192,13 @@ router.post('/google', async (req: Request, res: Response) => {
       });
     }
 
-    console.log('✅ Google Client configured, processing code...');
+    console.log('✅ Google Client configured, verifying credential...');
 
-    // Exchange authorization code for tokens
-    let tokens;
-    try {
-      const response = await googleClient.getToken(code);
-      tokens = response.tokens;
-      console.log('✅ Token exchange successful');
-    } catch (error: any) {
-      console.error('❌ Token exchange failed:', error.message);
-      return res.status(401).json({
-        success: false,
-        error: `Token exchange failed: ${error.message}`,
-      });
-    }
-    
-    if (!tokens.id_token) {
-      console.error('❌ No ID token in response');
-      return res.status(401).json({
-        success: false,
-        error: 'Failed to get ID token from Google',
-      });
-    }
-
-    // Verify the ID token
+    // Verify the Google ID token credential directly
     let ticket;
     try {
       ticket = await googleClient.verifyIdToken({
-        idToken: tokens.id_token,
+        idToken: credential,
         audience: googleClientId,
       });
       console.log('✅ ID token verified');
