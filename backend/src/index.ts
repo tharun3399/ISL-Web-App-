@@ -122,6 +122,20 @@ const initializeDatabase = async () => {
     `;
 
     await query(createEmailVerificationsTable);
+
+    // Create userinfo table if it doesn't exist
+    const createUserInfoTable = `
+      CREATE TABLE IF NOT EXISTS userinfo (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(200),
+        email VARCHAR(200) UNIQUE NOT NULL,
+        phone VARCHAR(15),
+        password VARCHAR(255),
+        password_hash VARCHAR(255)
+      );
+    `;
+
+    await query(createUserInfoTable);
     console.log('✅ Database schema initialized successfully');
   } catch (error: any) {
     console.error('⚠️  Error initializing database:', error.message);
