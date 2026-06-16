@@ -10,14 +10,27 @@ console.log('  Database:', process.env.DB_NAME);
 console.log('  User:', process.env.DB_USER);
 console.log('  Password length:', process.env.DB_PASSWORD?.length || 0);
 
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'isl_database',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+const connectionString = process.env.DATABASE_URL;
+
+if (connectionString) {
+  console.log('  Connection mode: DATABASE_URL');
+} else {
+  console.log('  Connection mode: DB_HOST/DB_PORT/DB_NAME/DB_USER');
+}
+
+const pool = connectionString
+  ? new Pool({
+      connectionString,
+      ssl: { rejectUnauthorized: false },
+    })
+  : new Pool({
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME || 'isl_database',
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || '',
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    });
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);

@@ -39,7 +39,7 @@ router.get('/', async (req, res) => {
       SELECT 
         ln.id,
         ln.lesson_name as title,
-        ln.photo,
+        CASE WHEN ln.photo IS NOT NULL THEN true ELSE false END as has_photo,
         COALESCE(json_agg(
           json_build_object(
             'id', t.id,
@@ -61,10 +61,17 @@ router.get('/', async (req, res) => {
       GROUP BY ln.id, ln.lesson_name, ln.photo
       ORDER BY ln.id ASC
     `);
-        console.log(`✅ Fetched ${result.rows.length} lessons with topics and sentences from database:`, result.rows);
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const lessons = result.rows.map((row) => ({
+            id: row.id,
+            title: row.title,
+            topics: row.topics,
+            photo_url: row.has_photo ? `${baseUrl}/api/lessons/${row.id}/photo` : null,
+        }));
+        console.log(`✅ Fetched ${lessons.length} lessons with topics and sentences from database.`);
         res.json({
             success: true,
-            data: result.rows,
+            data: lessons,
         });
     }
     catch (error) {
@@ -74,6 +81,30 @@ router.get('/', async (req, res) => {
             success: false,
             error: 'Failed to fetch lessons',
             details: errorMessage,
+        });
+    }
+});
+// Fetch lesson photo as binary
+router.get('/:id/photo', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await database_1.default.query(`SELECT photo FROM lesson_names WHERE id = $1`, [id]);
+        if (result.rows.length === 0 || !result.rows[0].photo) {
+            return res.status(404).json({
+                success: false,
+                error: 'Photo not found',
+            });
+        }
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.send(result.rows[0].photo);
+    }
+    catch (error) {
+        console.error('❌ Error fetching lesson photo:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to fetch lesson photo',
+            details: error instanceof Error ? error.message : 'Unknown error',
         });
     }
 });

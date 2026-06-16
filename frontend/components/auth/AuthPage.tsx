@@ -20,13 +20,30 @@ const GoogleSignInButton: React.FC<{ handleGoogleResponse: (response: any) => Pr
 const AuthPage: React.FC = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
+  const [signupStep, setSignupStep] = useState<'email' | 'details' | 'verify'>('email'); // email verification -> details -> confirm
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const parseApiResponse = async (response: Response) => {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      return response.json();
+    }
+
+    const text = await response.text();
+    return {
+      error: response.ok
+        ? 'Unexpected non-JSON response from server'
+        : text || `Request failed with status ${response.status}`,
+    };
+  };
 
   // Handle Google login response
   const handleGoogleResponse = async (credentialResponse: any) => {
@@ -47,7 +64,7 @@ const AuthPage: React.FC = () => {
         }),
       });
 
-      const data = await response.json();
+      const data = await parseApiResponse(response);
 
       if (!response.ok) {
         setError(data.error || 'Google authentication failed');
@@ -77,6 +94,7 @@ const AuthPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
 
     try {
@@ -99,7 +117,7 @@ const AuthPage: React.FC = () => {
           }),
         });
 
-        const data = await response.json();
+        const data = await parseApiResponse(response);
 
         if (!response.ok) {
           setError(data.error || 'Login failed');
@@ -115,48 +133,106 @@ const AuthPage: React.FC = () => {
         // Redirect to dashboard
         navigate('/dashboard');
       } else {
-        // Signup request
-        if (!name || !email || !phone || !password || !confirmPassword) {
-          setError('All fields are required');
+        // Signup flow with email verification
+        if (signupStep === 'email') {
+          // Step 1: Request verification code
+          if (!email) {
+            setError('Email is required');
+            setLoading(false);
+            return;
+          }
+
+          const response = await fetch(`${API_BASE_URL}/auth/email/request`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email }),
+          });
+
+          const data = await parseApiResponse(response);
+
+          if (!response.ok) {
+            setError(data.error || 'Failed to send verification code');
+            setLoading(false);
+            return;
+          }
+
+          setSuccess('Verification code sent to your email');
+          setSignupStep('verify');
           setLoading(false);
-          return;
-        }
+        } else if (signupStep === 'verify') {
+          // Step 2: Verify email code
+          if (!verificationCode) {
+            setError('Verification code is required');
+            setLoading(false);
+            return;
+          }
 
-        if (password !== confirmPassword) {
-          setError('Passwords do not match');
+          const response = await fetch(`${API_BASE_URL}/auth/email/verify`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, code: verificationCode }),
+          });
+
+          const data = await parseApiResponse(response);
+
+          if (!response.ok) {
+            setError(data.error || 'Invalid verification code');
+            setLoading(false);
+            return;
+          }
+
+          setSuccess('Email verified! Please enter your details.');
+          setSignupStep('details');
+          setVerificationCode('');
           setLoading(false);
-          return;
+        } else if (signupStep === 'details') {
+          // Step 3: Create account
+          if (!name || !phone || !password || !confirmPassword) {
+            setError('All fields are required');
+            setLoading(false);
+            return;
+          }
+
+          if (password !== confirmPassword) {
+            setError('Passwords do not match');
+            setLoading(false);
+            return;
+          }
+
+          const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              name,
+              email,
+              phone,
+              password,
+              confirmPassword,
+            }),
+          });
+
+          const data = await parseApiResponse(response);
+
+          if (!response.ok) {
+            setError(data.error || 'Signup failed');
+            setLoading(false);
+            return;
+          }
+
+          // Store token in localStorage
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.data));
+
+          console.log('✅ Signup successful:', data.data);
+          // Redirect to preferences
+          navigate('/preferences');
         }
-
-        const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name,
-            email,
-            phone,
-            password,
-            confirmPassword,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          setError(data.error || 'Signup failed');
-          setLoading(false);
-          return;
-        }
-
-        // Store token in localStorage
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.data));
-
-        console.log('✅ Signup successful:', data.data);
-        // Redirect to preferences
-        navigate('/preferences');
       }
     } catch (err: any) {
       console.error('❌ Error:', err);
@@ -168,11 +244,14 @@ const AuthPage: React.FC = () => {
   const toggleAuthMode = (mode: boolean) => {
     setIsLogin(mode);
     setError('');
+    setSuccess('');
     setName('');
     setPhone('');
     setEmail('');
     setPassword('');
     setConfirmPassword('');
+    setVerificationCode('');
+    setSignupStep('email');
   };
 
   return (
@@ -217,83 +296,152 @@ const AuthPage: React.FC = () => {
               </div>
             )}
 
-            {!isLogin && (
+            {success && (
+              <div className="bg-green-900/20 border border-green-800 text-green-400 px-4 py-3 rounded-lg text-sm animate-in slide-in-from-top-2">
+                <p className="font-semibold">✅ {success}</p>
+              </div>
+            )}
+
+            {isLogin ? (
               <>
-                <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
-                  <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Full Name</label>
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Email Access</label>
                   <input 
-                    type="text" 
-                    required={!isLogin}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your name"
+                    type="email" 
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="id@nexus.isl"
                     disabled={loading}
                     className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50"
                   />
                 </div>
 
-                <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
-                  <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Phone Number</label>
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Protocol Key</label>
                   <input 
-                    type="tel" 
-                    required={!isLogin}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+1 (555) 000-0000"
+                    type="password" 
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
                     disabled={loading}
                     className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50"
                   />
                 </div>
               </>
-            )}
-            
-            <div className="space-y-1">
-              <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Email Access</label>
-              <input 
-                type="email" 
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="id@nexus.isl"
-                disabled={loading}
-                className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50"
-              />
-            </div>
-            
-            <div className="space-y-1">
-              <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Protocol Key</label>
-              <input 
-                type="password" 
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                disabled={loading}
-                className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50"
-              />
-            </div>
+            ) : (
+              <>
+                {signupStep === 'email' && (
+                  <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                    <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Email Access</label>
+                    <input 
+                      type="email" 
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="id@nexus.isl"
+                      disabled={loading}
+                      className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50"
+                    />
+                  </div>
+                )}
 
-            {!isLogin && (
-              <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
-                <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Verify Key</label>
-                <input 
-                  type="password" 
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  disabled={loading}
-                  className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50"
-                />
-              </div>
+                {signupStep === 'verify' && (
+                  <>
+                    <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                      <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Email Access</label>
+                      <input 
+                        type="email" 
+                        disabled
+                        value={email}
+                        className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-zinc-500 placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50"
+                      />
+                    </div>
+                    <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                      <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Verification Code</label>
+                      <input 
+                        type="text" 
+                        required
+                        maxLength={6}
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                        placeholder="000000"
+                        disabled={loading}
+                        className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50 text-center text-lg tracking-[0.5rem]"
+                      />
+                      <p className="text-[7px] text-zinc-500 px-1">Check your email for the 6-digit code</p>
+                    </div>
+                  </>
+                )}
+
+                {signupStep === 'details' && (
+                  <>
+                    <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                      <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Full Name</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Enter your name"
+                        disabled={loading}
+                        className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                      <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Phone Number</label>
+                      <input 
+                        type="tel" 
+                        required
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="+1 (555) 000-0000"
+                        disabled={loading}
+                        className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                      <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Protocol Key</label>
+                      <input 
+                        type="password" 
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        disabled={loading}
+                        className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                      <label className="text-[8px] font-black text-zinc-600 uppercase tracking-widest px-1">Verify Key</label>
+                      <input 
+                        type="password" 
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        disabled={loading}
+                        className="w-full bg-zinc-900/20 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white transition-all text-sm disabled:opacity-50"
+                      />
+                    </div>
+                  </>
+                )}
+              </>
             )}
-            
+              
             <button 
               type="submit"
               disabled={loading}
               className="w-full py-4 bg-white text-black font-black text-[10px] rounded-lg hover:bg-zinc-200 transition-all shadow-lg active:scale-[0.98] mt-2 uppercase tracking-[0.3em] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? '⏳ Processing...' : (isLogin ? "Authenticate" : "Initialize")}
+              {loading ? '⏳ Processing...' : (isLogin ? "Authenticate" : signupStep === 'email' ? "Send Code" : signupStep === 'verify' ? "Verify Email" : "Initialize")}
             </button>
           </form>
 

@@ -3,7 +3,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import os from 'os';
-import pool, { closePool } from './config/database.js';
+import pool, { closePool, query } from './config/database.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import lessonRoutes from './routes/lessons.js';
@@ -92,9 +92,49 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
+// Initialize database schema
+const initializeDatabase = async () => {
+  try {
+    console.log('📊 Initializing database schema...');
+
+    // Ensure old foreign key constraint is removed.
+    // Verification records are created before a user exists, so this FK is invalid.
+    const dropLegacyForeignKey = `
+      ALTER TABLE IF EXISTS email_verifications
+      DROP CONSTRAINT IF EXISTS fk_email_verifications_email;
+    `;
+    await query(dropLegacyForeignKey);
+    
+    // Create email_verifications table if it doesn't exist
+    const createEmailVerificationsTable = `
+      CREATE TABLE IF NOT EXISTS email_verifications (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        code_hash VARCHAR(64) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        expires_at TIMESTAMP NOT NULL,
+        verified_at TIMESTAMP,
+        attempts INT DEFAULT 0
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON email_verifications(email);
+      CREATE INDEX IF NOT EXISTS idx_email_verifications_expires_at ON email_verifications(expires_at);
+    `;
+
+    await query(createEmailVerificationsTable);
+    console.log('✅ Database schema initialized successfully');
+  } catch (error: any) {
+    console.error('⚠️  Error initializing database:', error.message);
+    // Continue anyway - table might already exist
+  }
+};
+
 // Initialize server
 const startServer = async () => {
   try {
+    // Initialize database schema
+    await initializeDatabase();
+
     app.listen(PORT, HOST, () => {
       const localUrl = `http://localhost:${PORT}`;
       const resolvedNetworkIp = HOST === '0.0.0.0' ? getNetworkAddress() : HOST;

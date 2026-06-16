@@ -1,8 +1,9 @@
 import express, { Router, Request, Response } from 'express';
-import { UserModel } from '../models/User';
-import { generateToken, verifyToken } from '../utils/jwt';
-import { hashPassword, comparePassword } from '../utils/password';
 import { OAuth2Client } from 'google-auth-library';
+import { UserModel } from '../models/User';
+import { EmailVerificationModel } from '../models/EmailVerification';
+import { generateToken, verifyToken } from '../utils/jwt';
+import { sendVerificationEmail } from '../utils/email';
 
 const router: Router = express.Router();
 
@@ -34,6 +35,16 @@ router.post('/signup', async (req: Request, res: Response) => {
       });
     }
 
+    // Check if email is verified
+    const isVerified = await EmailVerificationModel.isVerified(email);
+    if (!isVerified) {
+      console.warn('⚠️  Email not verified:', email);
+      return res.status(400).json({
+        success: false,
+        error: 'Please verify your email before creating an account',
+      });
+    }
+
     // Check if user already exists
     const existingUser = await UserModel.findByEmail(email);
     if (existingUser) {
@@ -47,6 +58,9 @@ router.post('/signup', async (req: Request, res: Response) => {
     // Create user
     const user = await UserModel.create(name, email, phone, password);
     console.log('✅ User created successfully:', email);
+
+    // Clean up verification record after successful signup
+    await EmailVerificationModel.delete(email);
 
     // Generate JWT
     const token = generateToken({
@@ -278,6 +292,102 @@ router.post('/google', async (req: Request, res: Response) => {
       success: false,
       error: error.message || 'Google authentication failed',
       details: process.env.NODE_ENV === 'production' ? undefined : error.stack,
+    });
+  }
+});
+
+// Request verification code
+router.post('/email/request', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required',
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await UserModel.findByEmail(email);
+    if (existingUser) {
+      console.warn('⚠️  Email already registered:', email);
+      return res.status(409).json({
+        success: false,
+        error: 'Email already registered',
+      });
+    }
+
+    // Generate verification code
+    const verificationCode = EmailVerificationModel.generateVerificationCode();
+    const codeHash = EmailVerificationModel.hashVerificationCode(verificationCode);
+
+    // Store verification code
+    await EmailVerificationModel.upsert(email, codeHash);
+    console.log('📧 Verification code generated for:', email);
+
+    // Send verification email
+    const emailSent = await sendVerificationEmail(email, verificationCode);
+
+    if (!emailSent) {
+      console.error('Failed to send verification email to:', email);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send verification email. Please try again.',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Verification code sent to your email',
+      email,
+    });
+  } catch (error: any) {
+    console.error('❌ Error requesting verification:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to request verification code',
+    });
+  }
+});
+
+// Verify email code
+router.post('/email/verify', async (req: Request, res: Response) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email and verification code are required',
+      });
+    }
+
+    // Verify the code
+    const isVerified = await EmailVerificationModel.consumeVerification(email, code);
+
+    if (!isVerified) {
+      console.warn('⚠️  Invalid verification code for:', email);
+      const record = await EmailVerificationModel.findByEmail(email);
+      const attemptsLeft = record ? 5 - record.attempts : 5;
+
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid verification code',
+        attemptsLeft: Math.max(0, attemptsLeft),
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Email verified successfully',
+      email,
+    });
+  } catch (error: any) {
+    console.error('❌ Error verifying email:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to verify email',
     });
   }
 });

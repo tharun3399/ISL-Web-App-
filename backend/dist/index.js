@@ -66,7 +66,21 @@ const getNetworkAddress = () => {
     return null;
 };
 // Middleware
-app.use((0, cors_1.default)());
+// Configure CORS to allow requests from frontend origins
+app.use((0, cors_1.default)({
+    origin: [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:5173',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001',
+        'http://127.0.0.1:5173',
+        'https://isl-web-app.vercel.app'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(body_parser_1.default.json());
 app.use(body_parser_1.default.urlencoded({ extended: true }));
 // Health check endpoint
@@ -109,9 +123,45 @@ app.get('/', (req, res) => {
         },
     });
 });
+// Initialize database schema
+const initializeDatabase = async () => {
+    try {
+        console.log('📊 Initializing database schema...');
+        // Ensure old foreign key constraint is removed.
+        // Verification records are created before a user exists, so this FK is invalid.
+        const dropLegacyForeignKey = `
+      ALTER TABLE IF EXISTS email_verifications
+      DROP CONSTRAINT IF EXISTS fk_email_verifications_email;
+    `;
+        await (0, database_js_1.query)(dropLegacyForeignKey);
+        // Create email_verifications table if it doesn't exist
+        const createEmailVerificationsTable = `
+      CREATE TABLE IF NOT EXISTS email_verifications (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        code_hash VARCHAR(64) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        expires_at TIMESTAMP NOT NULL,
+        verified_at TIMESTAMP,
+        attempts INT DEFAULT 0
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON email_verifications(email);
+      CREATE INDEX IF NOT EXISTS idx_email_verifications_expires_at ON email_verifications(expires_at);
+    `;
+        await (0, database_js_1.query)(createEmailVerificationsTable);
+        console.log('✅ Database schema initialized successfully');
+    }
+    catch (error) {
+        console.error('⚠️  Error initializing database:', error.message);
+        // Continue anyway - table might already exist
+    }
+};
 // Initialize server
 const startServer = async () => {
     try {
+        // Initialize database schema
+        await initializeDatabase();
         app.listen(PORT, HOST, () => {
             const localUrl = `http://localhost:${PORT}`;
             const resolvedNetworkIp = HOST === '0.0.0.0' ? getNetworkAddress() : HOST;

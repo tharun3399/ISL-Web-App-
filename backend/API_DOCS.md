@@ -188,6 +188,74 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
+### Request Email Verification Code
+```http
+POST /api/auth/email/request
+Content-Type: application/json
+```
+
+**Description:** Request a verification code to be sent to the user's email during account creation.
+
+**Request Body:**
+```json
+{
+  "email": "john@example.com"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Verification code sent to your email",
+  "email": "john@example.com"
+}
+```
+
+**Error Responses:**
+- `400`: Email is required
+- `409`: Email already registered
+- `500`: Failed to send verification email
+
+---
+
+### Verify Email Code
+```http
+POST /api/auth/email/verify
+Content-Type: application/json
+```
+
+**Description:** Verify the email code sent to the user's email.
+
+**Request Body:**
+```json
+{
+  "email": "john@example.com",
+  "code": "123456"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Email verified successfully",
+  "email": "john@example.com"
+}
+```
+
+**Error Responses:**
+- `400`: Invalid verification code or email and code required
+- `500`: Failed to verify email
+
+**Note:** The verification code:
+- Is 6 digits long
+- Expires after 10 minutes
+- Can be attempted up to 5 times before being invalidated
+- Sent via Gmail SMTP
+
+---
+
 ## Users Endpoints
 
 ### Get All Users
@@ -272,8 +340,6 @@ curl -X POST http://localhost:5000/api/auth/verify \
   -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE"
 ```
 
----
-
 ## Database Schema
 
 ### userinfo Table
@@ -287,8 +353,6 @@ CREATE TABLE userinfo (
   password_hash VARCHAR(255)
 );
 ```
-
----
 
 ## Security Notes
 
