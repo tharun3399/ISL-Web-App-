@@ -88,23 +88,7 @@ const Dashboard: React.FC = () => {
           <GoalCard />
           <AiAssistant />
           
-          <div className="bg-zinc-900/10 border border-zinc-900/50 rounded-[2rem] p-6 relative overflow-hidden group hover:border-zinc-700 transition-colors">
-            <div className="absolute -top-4 -right-4 p-6 opacity-5 group-hover:opacity-20 transition-all duration-500 scale-150">
-               <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                 <circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V9"/>
-               </svg>
-            </div>
-            <h3 className="font-black text-[9px] uppercase tracking-[0.3em] mb-4 text-zinc-500">Unlocked Milestone</h3>
-            <div className="flex items-center gap-5">
-              <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-2xl grayscale group-hover:grayscale-0 transition-all">
-                🏅
-              </div>
-              <div>
-                <p className="font-black text-white text-[10px] uppercase tracking-tight">Silent Speaker</p>
-                <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest mt-0.5">2/5 modules complete</p>
-              </div>
-            </div>
-          </div>
+          {/* Unlocked Milestone card removed per request */}
         </div>
       </div>
     </div>
