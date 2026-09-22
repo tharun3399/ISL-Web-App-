@@ -10,6 +10,7 @@ import AiAssistant from './AiAssistant';
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [userName, setUserName] = useState<string>('User');
+  const [progress, setProgress] = useState({ masteryPoints: 0, activeDays: 0, completedTopics: 0, totalTopics: 0 });
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -20,6 +21,12 @@ const Dashboard: React.FC = () => {
       } catch (err) {
         console.error('Error parsing user data:', err);
       }
+    }
+    try {
+      const raw = localStorage.getItem('isl_progress_v1');
+      if (raw) setProgress(JSON.parse(raw));
+    } catch (e) {
+      console.error('Error loading progress:', e);
     }
   }, []);
 
@@ -51,13 +58,13 @@ const Dashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <StatCard 
               label="STREAK" 
-              value="12" 
+              value={String(progress.activeDays)} 
               trend="Current Active Days" 
               icon={<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />}
             />
             <StatCard 
               label="EXPERIENCE" 
-              value="4,820" 
+              value={progress.masteryPoints.toLocaleString()} 
               trend="Mastery Points"
               icon={<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />}
             />

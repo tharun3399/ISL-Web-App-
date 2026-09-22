@@ -141,18 +141,22 @@ const LessonsPage: React.FC = () => {
           id: String(dbLesson.id).padStart(2, '0'),
           title: dbLesson.title || `Lesson ${index + 1}`,
           description: `Initialize cognitive patterns for basic hand-shapes.`,
-          status: index === 0 ? 'active' : index === 1 ? 'locked' : 'locked',
+          // at beginning only first module active, others locked
+          status: index === 0 ? 'active' : 'locked',
           difficulty: 'Basic' as const,
           duration: '15m',
           topics: (dbLesson.topics && dbLesson.topics.length > 0) 
             ? dbLesson.topics.map((topicItem: any, i: number) => ({
-                id: `T${i + 1}`,
-                title: topicItem.topic,
-                type: 'Video' as const,
-                duration: '3m',
-                completed: i < 4,
-                image: `https://images.unsplash.com/photo-${1516733968668 + i}-dbdce39c46ef?auto=format&fit=crop&q=80&w=400`,
-                clips: (topicItem.sentences && topicItem.sentences.length > 0)
+                  // keep a UI id but also preserve DB id as dbId
+                  id: `T${i + 1}`,
+                  dbId: topicItem.id,
+                  title: topicItem.topic,
+                  type: 'Video' as const,
+                  duration: '3m',
+                  // only mark topics completed if stored as completed in DB; default false
+                  completed: topicItem.completed === true,
+                  image: `https://images.unsplash.com/photo-${1516733968668 + i}-dbdce39c46ef?auto=format&fit=crop&q=80&w=400`,
+                  clips: (topicItem.sentences && topicItem.sentences.length > 0)
                   ? topicItem.sentences.map((sentenceItem: any, j: number) => ({
                       title: sentenceItem.sentence,
                       videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
@@ -276,6 +280,16 @@ const LessonsPage: React.FC = () => {
       };
 
       setSelectedLesson(enrichedLesson);
+      // initialize progress totals for this lesson if not set
+      try {
+        const raw = localStorage.getItem('isl_progress_v1');
+        const progress = raw ? JSON.parse(raw) : { masteryPoints: 0, activeDays: 0, completedTopics: 0, totalTopics: 0 };
+        const totalTopics = enrichedLesson.topics.length;
+        if (!progress.totalTopics || progress.totalTopics < totalTopics) {
+          progress.totalTopics = totalTopics;
+          localStorage.setItem('isl_progress_v1', JSON.stringify(progress));
+        }
+      } catch (e) { console.error('Failed initializing progress', e); }
 
       if (sentenceTopic.clips.length > 0) {
         setActiveTopicIndex(0);
@@ -370,6 +384,71 @@ const LessonsPage: React.FC = () => {
         if (updatedTopics[i]) updatedTopics[i].completed = true;
       }
       setSelectedLesson({ ...selectedLesson, topics: updatedTopics });
+      // persist progress: attempt backend, fallback to localStorage
+      (async () => {
+        try {
+          const userRaw = localStorage.getItem('user');
+          const userId = userRaw ? (JSON.parse(userRaw).id || null) : null;
+          if (userId) {
+            // Determine topic db id for the gated topic range (use the last topic id in the gate)
+            const lastTopicIndex = showQuizGate - 1;
+            const lastTopic = updatedTopics[lastTopicIndex];
+            const topicDbId = lastTopic && (lastTopic as any).dbId ? (lastTopic as any).dbId : null;
+            await fetch(`${API_BASE_URL}/progress/complete`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, topicId: topicDbId, quizScore: assessmentScore, quizPassed: assessmentScore >= 4 })
+            });
+            const res = await fetch(`${API_BASE_URL}/progress/${userId}`);
+            if (res.ok) {
+              const json = await res.json();
+              if (json.success && json.data) {
+                localStorage.setItem('isl_progress_v1', JSON.stringify({
+                  masteryPoints: json.data.masteryPoints,
+                  activeDays: json.data.activeDays,
+                  completedTopics: json.data.completedTopics,
+                  totalTopics: json.data.totalTopics
+                }));
+                const percent = json.data.totalTopics > 0 ? Math.round((json.data.completedTopics / json.data.totalTopics) * 100) : 0;
+                const bar = document.getElementById('progress-bar');
+                const idx = document.getElementById('progress-index');
+                if (bar) bar.style.width = `${percent}%`;
+                if (idx) idx.textContent = `${percent}%`;
+                // update lessons list UI: replace the selected lesson topics and unlock next lesson if completed
+                setLessons((prev) => {
+                  const copy = [...prev];
+                  const lessonIndex = copy.findIndex(l => l.id === selectedLesson.id);
+                  if (lessonIndex !== -1) {
+                    // update topics
+                    copy[lessonIndex] = { ...copy[lessonIndex], topics: updatedTopics };
+                    const allCompleted = updatedTopics.every(t => t.completed);
+                    if (allCompleted) {
+                      copy[lessonIndex].status = 'completed';
+                      // unlock next lesson if exists and is locked
+                      if (lessonIndex + 1 < copy.length && copy[lessonIndex + 1].status === 'locked') {
+                        copy[lessonIndex + 1].status = 'active';
+                      }
+                    }
+                  }
+                  return copy;
+                });
+              }
+            }
+          } else {
+            const raw = localStorage.getItem('isl_progress_v1');
+            const progress = raw ? JSON.parse(raw) : { masteryPoints: 0, activeDays: 0, completedTopics: 0, totalTopics: 0 };
+            const newlyCompleted = updatedTopics.filter((t) => t.completed).length;
+            progress.completedTopics = Math.max(progress.completedTopics, newlyCompleted);
+            progress.masteryPoints = (progress.masteryPoints || 0) + (assessmentScore >= 4 ? 100 : 0);
+            localStorage.setItem('isl_progress_v1', JSON.stringify(progress));
+            const percent = progress.totalTopics > 0 ? Math.round((progress.completedTopics / progress.totalTopics) * 100) : 0;
+            const bar = document.getElementById('progress-bar');
+            const idx = document.getElementById('progress-index');
+            if (bar) bar.style.width = `${percent}%`;
+            if (idx) idx.textContent = `${percent}%`;
+          }
+        } catch (e) { console.error('Failed saving progress', e); }
+      })();
     }
     setIsAssessing(false);
     setShowQuizGate(null);

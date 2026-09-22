@@ -1,7 +1,19 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
+
+import { getProgress } from '../../utils/progress';
 
 const GoalCard: React.FC = () => {
+  useEffect(() => {
+    try {
+      const p = getProgress();
+      const percent = p.totalTopics > 0 ? Math.round((p.completedTopics / p.totalTopics) * 100) : 0;
+      const bar = document.getElementById('progress-bar');
+      const idx = document.getElementById('progress-index');
+      if (bar) bar.style.width = `${percent}%`;
+      if (idx) idx.textContent = `${percent}%`;
+    } catch (e) { console.error('Error updating progress bar', e); }
+  }, []);
   return (
     <div className="bg-[#0a0a0a] rounded-[3rem] p-10 space-y-10 border border-zinc-900 shadow-xl">
       <div className="flex justify-between items-center">
@@ -18,10 +30,10 @@ const GoalCard: React.FC = () => {
         <div className="space-y-4">
           <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
             <span>Progress Index</span>
-            <span className="text-white">72%</span>
+            <span className="text-white" id="progress-index">0%</span>
           </div>
           <div className="w-full bg-zinc-900/50 h-5 rounded-full overflow-hidden border border-zinc-900 p-1">
-            <div className="bg-white h-full rounded-full transition-all duration-1000" style={{ width: '72%' }}></div>
+            <div id="progress-bar" className="bg-white h-full rounded-full transition-all duration-1000" style={{ width: '0%' }}></div>
           </div>
         </div>
 

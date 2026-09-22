@@ -9,6 +9,7 @@ import userRoutes from './routes/users.js';
 import lessonRoutes from './routes/lessons.js';
 import topicsRoutes from './routes/topics.js';
 import wordsRoutes from './routes/words.js';
+import progressRoutes from './routes/progress.js';
 
 dotenv.config();
 
@@ -78,6 +79,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/lessons', lessonRoutes);
 app.use('/api/topics', topicsRoutes);
 app.use('/api/words', wordsRoutes);
+app.use('/api/progress', progressRoutes);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
