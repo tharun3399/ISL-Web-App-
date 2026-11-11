@@ -8,6 +8,7 @@ const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
 
 const transporter = smtpEmail && smtpPassword
   ? nodemailer.createTransport({
+      service: 'gmail',
       host: smtpHost,
       port: smtpPort,
       secure: smtpSecure,
