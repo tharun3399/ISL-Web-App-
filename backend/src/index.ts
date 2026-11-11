@@ -1,7 +1,7 @@
+import 'dotenv/config';
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import dotenv from 'dotenv';
 import os from 'os';
 import pool, { closePool, query } from './config/database.js';
 import authRoutes from './routes/auth.js';
@@ -11,8 +11,6 @@ import topicsRoutes from './routes/topics.js';
 import wordsRoutes from './routes/words.js';
 import progressRoutes from './routes/progress.js';
 import { testEmailConnection } from './utils/email.js';
-
-dotenv.config();
 
 const app: Express = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -151,7 +149,6 @@ const startServer = async () => {
   try {
     // Initialize database schema
     await initializeDatabase();
-    await testEmailConnection();
 
     app.listen(PORT, HOST, () => {
       const localUrl = `http://localhost:${PORT}`;
@@ -163,6 +160,9 @@ const startServer = async () => {
       console.log(`🔗 Health check: ${localUrl}/health`);
       console.log(`📝 Auth endpoints: ${localUrl}/api/auth`);
     });
+
+    // Do not block Render's port detection on an external SMTP connection.
+    void testEmailConnection();
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
