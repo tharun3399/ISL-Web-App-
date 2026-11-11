@@ -346,7 +346,12 @@ router.post('/email/request', async (req: Request, res: Response) => {
       email,
     });
   } catch (error: any) {
-    console.error('❌ Error requesting verification:', error);
+    console.error('❌ Error requesting verification:', {
+      message: error instanceof Error ? error.message : String(error),
+      code: error?.code,
+      detail: error?.detail,
+      constraint: error?.constraint,
+    });
     res.status(500).json({
       success: false,
       error: 'Failed to request verification code',
