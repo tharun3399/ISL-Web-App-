@@ -1,6 +1,5 @@
-# PowerShell helper to restore a plain SQL dump to a remote Postgres (Render)
-# Requires psql to be installed and available in PATH. Install from: https://www.postgresql.org/download/windows/
-# Usage: .\restore_to_render.ps1 -SqlFile .\backup_v2.sql -DbUrl "postgresql://user:pass@host:5432/dbname"
+# Restore a plain SQL dump to a remote Postgres database such as Render.
+# Usage: .\restore_to_render.ps1 -SqlFile .\backup_clean.sql -DbUrl $env:RENDER_DATABASE_URL
 param(
     [Parameter(Mandatory=$true)]
     [string]$SqlFile,
@@ -8,35 +7,66 @@ param(
     [string]$DbUrl
 )
 
-if (-not (Test-Path $SqlFile)) {
+if (-not (Test-Path -LiteralPath $SqlFile)) {
     Write-Error "SQL file not found: $SqlFile"
     exit 1
 }
 
-# Parse connection URL into components for psql (psql accepts the URL directly via --dbname)
-# For convenience, we will call psql using the provided URL.
+$psql = Get-Command psql -ErrorAction SilentlyContinue
+if (-not $psql) {
+    Write-Error "psql was not found in PATH. Install the PostgreSQL client and try again."
+    exit 1
+}
 
-Write-Host "Starting restore of $SqlFile to $DbUrl"
+if ([string]::IsNullOrWhiteSpace($DbUrl)) {
+    Write-Error "A Render External Database URL is required."
+    exit 1
+}
 
-# Recommend prompting for confirmation
-$confirm = Read-Host "This will execute the SQL file against the target DB. Are you sure? (yes/no)"
+Write-Host "Starting restore of $SqlFile"
+$confirm = Read-Host "This will execute the SQL file against the target database. Are you sure? (yes/no)"
 if ($confirm -ne 'yes') {
     Write-Host "Aborted by user"
     exit 0
 }
 
-# Run psql
-$psqlCmd = "psql --single-transaction --set ON_ERROR_STOP=on \"$DbUrl\" -f \"$SqlFile\""
-Write-Host "Running: $psqlCmd"
+# The supplied dump is UTF-16LE. Convert it to UTF-8 so psql does not read NUL bytes.
+# Render's managed role cannot assume the source dump's postgres role, so omit
+# source ownership/session-role statements while retaining schema and data.
+$tempSqlFile = $null
+try {
+    $resolvedSqlFile = (Resolve-Path -LiteralPath $SqlFile).Path
+    $bytes = [System.IO.File]::ReadAllBytes($resolvedSqlFile)
+    if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+        $tempSqlFile = Join-Path ([System.IO.Path]::GetTempPath()) ("isl-restore-" + [guid]::NewGuid().ToString() + ".sql")
+        $content = [System.Text.Encoding]::Unicode.GetString($bytes, 2, $bytes.Length - 2)
+        $content = (($content -split "\r?\n") | Where-Object {
+            $line = $_.Trim()
+            $line -notmatch '^SET\s+(ROLE|SESSION AUTHORIZATION)\b' -and
+            $line -notmatch '^ALTER\s+.*\sOWNER\s+TO\s+' -and
+            $line -notmatch '^GRANT\s+' -and
+            $line -notmatch '^REVOKE\s+'
+        }) -join [Environment]::NewLine
+        [System.IO.File]::WriteAllText($tempSqlFile, $content, (New-Object System.Text.UTF8Encoding($false)))
+        $restoreFile = $tempSqlFile
+    } else {
+        $restoreFile = $resolvedSqlFile
+    }
 
-# Use Start-Process to inherit console and show output
-$proc = Start-Process -FilePath psql -ArgumentList "--single-transaction","--set","ON_ERROR_STOP=on",$DbUrl,"-f",$SqlFile -NoNewWindow -Wait -PassThru
-if ($proc.ExitCode -ne 0) {
-    Write-Error "psql exited with code $($proc.ExitCode)"
-    exit $proc.ExitCode
+    $proc = Start-Process -FilePath $psql.Source `
+        -ArgumentList "--single-transaction","--set","ON_ERROR_STOP=on",$DbUrl,"-f",$restoreFile `
+        -NoNewWindow -Wait -PassThru
+    if ($proc.ExitCode -ne 0) {
+        throw "psql exited with code $($proc.ExitCode)"
+    }
+} catch {
+    Write-Error "Restore failed: $($_.Exception.Message)"
+    exit 1
+} finally {
+    if ($tempSqlFile -and (Test-Path -LiteralPath $tempSqlFile)) {
+        Remove-Item -LiteralPath $tempSqlFile -Force
+    }
 }
 
 Write-Host "Restore completed successfully"
-
-# Post-restore checks (manual)
-Write-Host "After restore, check tables:\n 1) Connect via psql or pgAdmin and run: \n    SELECT tablename FROM pg_tables WHERE schemaname='public';\n 2) Run your backend /db-check and /health endpoints to verify connectivity."
+Write-Host "Verify with: psql `"<Render URL>`" -c `"SELECT COUNT(*) FROM users;`""
