@@ -1,22 +1,33 @@
 import nodemailer from 'nodemailer';
 
-// Gmail SMTP configuration using the provided credentials
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // Use TLS (STARTTLS)
-  auth: {
-    user: process.env.SMTP_EMAIL || 'islapp490@gmail.com',
-    pass: process.env.SMTP_PASSWORD || 'bwhc ckqb fcgq fqty',
-  },
-});
+const smtpEmail = process.env.SMTP_EMAIL?.trim();
+const smtpPassword = process.env.SMTP_PASSWORD?.replace(/\s+/g, '');
+const smtpHost = process.env.SMTP_HOST?.trim() || 'smtp.gmail.com';
+const smtpPort = Number(process.env.SMTP_PORT || 587);
+const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
+
+const transporter = smtpEmail && smtpPassword
+  ? nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: {
+        user: smtpEmail,
+        pass: smtpPassword,
+      },
+    })
+  : null;
 
 export async function sendVerificationEmail(
   recipientEmail: string,
   verificationCode: string
 ): Promise<boolean> {
   try {
+    if (!transporter || !smtpEmail) {
+      console.error('❌ SMTP is not configured. Set SMTP_EMAIL and SMTP_PASSWORD.');
+      return false;
+    }
+
     console.log('📧 Sending verification email to:', recipientEmail);
 
     const htmlContent = `
@@ -54,7 +65,7 @@ export async function sendVerificationEmail(
     `;
 
     const mailOptions = {
-      from: process.env.SMTP_EMAIL || 'islapp490@gmail.com',
+      from: smtpEmail,
       to: recipientEmail,
       subject: 'Email Verification - ISL Hub',
       html: htmlContent,
@@ -62,7 +73,7 @@ export async function sendVerificationEmail(
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Verification email sent:', info.response);
+    console.log('✅ Verification email sent:', info.messageId);
     return true;
   } catch (error: any) {
     console.error('❌ Error sending verification email:', error);
@@ -72,6 +83,11 @@ export async function sendVerificationEmail(
 
 export async function testEmailConnection(): Promise<boolean> {
   try {
+    if (!transporter) {
+      console.error('❌ SMTP is not configured. Set SMTP_EMAIL and SMTP_PASSWORD.');
+      return false;
+    }
+
     console.log('🧪 Testing email connection...');
     await transporter.verify();
     console.log('✅ Email service is ready');

@@ -14,7 +14,8 @@ const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 // Sign up - Create new user
 router.post('/signup', async (req: Request, res: Response) => {
   try {
-    const { name, email, phone, password, confirmPassword } = req.body;
+    const { name, email: rawEmail, phone, password, confirmPassword } = req.body;
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
 
     console.log('📝 Signup attempt for email:', email);
 
@@ -299,7 +300,8 @@ router.post('/google', async (req: Request, res: Response) => {
 // Request verification code
 router.post('/email/request', async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
+    const { email: rawEmail } = req.body;
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
 
     if (!email) {
       return res.status(400).json({
@@ -331,6 +333,7 @@ router.post('/email/request', async (req: Request, res: Response) => {
 
     if (!emailSent) {
       console.error('Failed to send verification email to:', email);
+      await EmailVerificationModel.delete(email);
       return res.status(500).json({
         success: false,
         error: 'Failed to send verification email. Please try again.',

@@ -10,6 +10,7 @@ import lessonRoutes from './routes/lessons.js';
 import topicsRoutes from './routes/topics.js';
 import wordsRoutes from './routes/words.js';
 import progressRoutes from './routes/progress.js';
+import { testEmailConnection } from './utils/email.js';
 
 dotenv.config();
 
@@ -150,6 +151,7 @@ const startServer = async () => {
   try {
     // Initialize database schema
     await initializeDatabase();
+    await testEmailConnection();
 
     app.listen(PORT, HOST, () => {
       const localUrl = `http://localhost:${PORT}`;
